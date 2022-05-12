@@ -6,7 +6,9 @@ const client = new Client({
     Intents.FLAGS.GUILD_VOICE_STATES,
   ],
 });
-const config = require("./config.json");
+const keepAlive = require('./server');
+const prefix = '-';
+const mySecret = process.env['token'];
 const fs = require("fs");
 
 client.commands = new Discord.Collection();
@@ -24,9 +26,9 @@ client.once("ready", () => {
 });
 
 client.on("message", (message) => {
-  if (!message.content.startsWith(config.prefix) || message.author.bot) return;
+  if (!message.content.startsWith(prefix) || message.author.bot) return;
 
-  const args = message.content.slice(config.prefix.length).split(/ +/);
+  const args = message.content.slice(prefix.length).split(/ +/);
   const command = args.shift().toLowerCase();
 
   const cmd =

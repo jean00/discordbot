@@ -8,18 +8,17 @@ const {
   AudioPlayerStatus,
 } = require("@discordjs/voice");
 
-const queue = new Map();
+let queue = new Map();
 
 module.exports = {
   name: "play",
   description: "Joins and plays a video from youtube",
-  aliases: ["skip", "pause"],
+  aliases: ["skip", "leave"],
 
-  async execute(message, args, cmd) {
+  async execute(message, args, cmd, client) {
     const voiceChannel = message.member.voice.channel;
     const server_queue = queue.get(message.guild.id);
-    const player = createAudioPlayer();
-
+    console.log(queue.get(message.guild.id));
     if (!voiceChannel)
       return message.channel.send(
         "You need to be in a channel to execute this command!"
@@ -61,7 +60,6 @@ module.exports = {
           message.channel.send("Error finding video.");
         }
       }
-
       if (!server_queue) {
         const queue_constructor = {
           voice_channel: voiceChannel,
@@ -76,7 +74,7 @@ module.exports = {
         try {
           const connection = await join;
           queue_constructor.connection = connection;
-          video_player(message.guild, queue_constructor.songs[0], player);
+          video_player(message.guild, queue_constructor.songs[0]);
         } catch (err) {
           queue.delete(message.guild.id);
           message.channel.send("There was an error connecting!");
@@ -87,11 +85,13 @@ module.exports = {
         return message.channel.send(`👍 **${song.title}** added to queue!`);
       }
     } else if (cmd === "skip") skip(message, message.guild, server_queue);
+    else if (cmd === "leave") stop(message, server_queue);
   },
 };
 
-const video_player = async (guild, song, player) => {
+const video_player = async (guild, song) => {
   const song_queue = queue.get(guild.id);
+  const player = createAudioPlayer();
 
   if (!song) {
     song_queue.connection.destroy();
@@ -124,4 +124,13 @@ const skip = (message, guild, server_queue) => {
   const song_queue = queue.get(guild.id);
   song_queue.songs.shift();
   video_player(guild, song_queue.songs[0]);
+};
+
+const stop = (message, server_queue) => {
+  if (!message.member.voice.channel)
+    return message.channel.send(
+      "You need to be in a channel to execute this command!"
+    );
+  queue = new Map();
+  server_queue.connection.destroy();
 };
