@@ -1,42 +1,83 @@
-const Discord = ({ Client, Intents } = require("discord.js"));
-const client = new Client({
-  intents: [
-    Intents.FLAGS.GUILDS,
-    Intents.FLAGS.GUILD_MESSAGES,
-    Intents.FLAGS.GUILD_VOICE_STATES,
-  ],
-});
+const { REST } = require('@discordjs/rest');
+const { Routes } = require('discord-api-types/v9');
+const {
+  Client,
+  GatewayIntentBits,
+  Collection,
+  ActivityType,
+} = require('discord.js');
+const { Player } = require('discord-player');
+const token = process.env['token'];
+const clientId = process.env['clientId'];
+const fs = require('fs');
+const path = require('path');
 const keepAlive = require('./server');
-const prefix = '-';
-const mySecret = process.env['token'];
-const fs = require("fs");
 
-client.commands = new Discord.Collection();
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
+});
+
+// List of all commands
+const commands = [];
+client.commands = new Collection();
+
+const commandsPath = path.join(__dirname, 'commands');
 const commandFiles = fs
-  .readdirSync("./commands/")
-  .filter((file) => file.endsWith(".js"));
+  .readdirSync(commandsPath)
+  .filter((file) => file.endsWith('.js'));
 for (const file of commandFiles) {
-  const command = require(`./commands/${file}`);
+  const filePath = path.join(commandsPath, file);
+  const command = require(filePath);
 
-  client.commands.set(command.name, command);
+  client.commands.set(command.data.name, command);
+  commands.push(command.data.toJSON());
 }
 
-client.once("ready", () => {
-  console.log("I'm ready!");
+// Add the player on the client
+client.player = new Player(client, {
+  ytdlOptions: {
+    quality: 'highestaudio',
+    highWaterMark: 1 << 25,
+  },
 });
 
-client.on("message", (message) => {
-  if (!message.content.startsWith(prefix) || message.author.bot) return;
+client.on('ready', () => {
+  // Get all ids of the servers
+  const guild_ids = client.guilds.cache.map((guild) => guild.id);
 
-  const args = message.content.slice(prefix.length).split(/ +/);
-  const command = args.shift().toLowerCase();
+  const rest = new REST({ version: '9' }).setToken(token);
+  for (const guildId of guild_ids) {
+    rest
+      .put(Routes.applicationGuildCommands(clientId, guildId), {
+        body: commands,
+      })
+      .then(() =>
+        console.log('Successfully updated commands for guild ' + guildId)
+      )
+      .catch(console.error);
+  }
+  // Set activity status
+  client.user.setPresence({
+    activities: [{ name: 'Music', type: ActivityType.Streaming }],
+    status: 'online',
+  });
+});
 
-  const cmd =
-    client.commands.get(command) ||
-    client.commands.find((a) => a.aliases && a.aliases.includes(command));
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isCommand()) return;
 
-  if (cmd) cmd.execute(message, args, command);
+  const command = client.commands.get(interaction.commandName);
+  if (!command) return;
+
+  try {
+    await command.execute({ client, interaction });
+  } catch (error) {
+    console.error(error);
+    await interaction.reply({
+      content: 'There was an error executing this command',
+    });
+  }
 });
 
 keepAlive();
-client.login(mySecret);
+client.login(token);
