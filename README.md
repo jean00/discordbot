@@ -1,7 +1,6 @@
 # discordbot
 A simple discord bot created for learning purpose. Hosted on Uptimerobot.
 With this bot you can type the song that you want or copy-paste the link of a playlist and it will be reproduced on your discord channel.
-Click [here](https://discord.com/oauth2/authorize?client_id=904003512927653899&scope=bot&permissions=3147776) to invite it to your server 
 
 ## Version 1.0
 Changelog:
